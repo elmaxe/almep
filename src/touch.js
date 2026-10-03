@@ -5,10 +5,10 @@ const RUN_AT = 0.92; // stick pushed this far = run
 /**
  * On-screen controls for phones and tablets: a floating stick on the left
  * third of the screen to walk, drag anywhere else to look, and buttons for
- * jump, crouch and pause.
+ * firing, drawing the gun, jump, crouch and pause.
  */
 export class TouchControls {
-  constructor(player, { onPause }) {
+  constructor(player, { onPause, weapon }) {
     this.player = player;
     this.root = document.getElementById('touch');
     this.stick = document.getElementById('stick');
@@ -30,6 +30,8 @@ export class TouchControls {
       });
     };
     press('btn-jump', () => player.jump());
+    press('btn-fire', () => weapon.trigger());
+    press('btn-gun', () => weapon.toggle());
     press('btn-crouch', () => this.setCrouch(!player.touch.crouch));
     document.getElementById('btn-pause').addEventListener('click', () => onPause());
     // stop long-presses from opening the context menu / text selection

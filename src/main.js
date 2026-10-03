@@ -13,6 +13,9 @@ import { Player } from './player.js';
 import { Hud } from './hud.js';
 import { Ambience } from './audio.js';
 import { TouchControls } from './touch.js';
+import { Couple } from './couple.js';
+import { Weapon, CHAMBERS } from './weapon.js';
+import { Mission } from './mission.js';
 
 const FOG = new THREE.Color(0x0e121b);
 const COARSE = window.matchMedia('(pointer: coarse)').matches;
@@ -32,6 +35,7 @@ scene.background = FOG;
 scene.fog = new THREE.FogExp2(FOG, 0.0105);
 
 const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.05, 1500);
+scene.add(camera); // so the gun held in front of it is rendered
 
 // keep a usable horizontal field of view on tall (portrait) screens
 function fitCamera() {
@@ -80,12 +84,17 @@ new Church(world);
 const lights = new StreetLights(world);
 const vehicles = new Vehicles(world);
 const people = new People(world);
+const couple = new Couple(world);
 const snow = new Snow(scene);
 const player = new Player(camera, world, renderer.domElement);
-player.obstacles = () => people.obstacles();
+player.obstacles = () => [...people.obstacles(), ...couple.positions()];
 const hud = new Hud(world);
 const audio = new Ambience();
 player.onStep = (run) => audio.step(run);
+const weapon = new Weapon(camera, world, renderer.domElement, { targets: () => couple.targets(), audio });
+weapon.onChange = () => hud.setAmmo({ drawn: weapon.drawn, rounds: weapon.rounds, chambers: CHAMBERS, reloading: weapon.reloading > 0 });
+weapon.onChange();
+const mission = new Mission({ couple, weapon, people, hud, player });
 
 // --- post-processing ----------------------------------------------------------
 const composer = new EffectComposer(renderer);
@@ -105,19 +114,51 @@ window.addEventListener('resize', resize);
 const overlay = document.getElementById('overlay');
 const hudEl = document.getElementById('hud');
 const startBtn = document.getElementById('start');
+const againBtn = document.getElementById('again');
 let started = false;
 let touchMode = false;
 let startPointer = null;
 
 function setPlaying(playing) {
   player.enabled = playing;
+  weapon.enabled = playing;
   overlay.classList.toggle('hidden', playing);
   hudEl.classList.toggle('hidden', !started);
   audio.setPaused(!playing);
   if (!playing) touch.reset();
 }
 
-const touch = new TouchControls(player, { onPause: () => setPlaying(false) });
+const touch = new TouchControls(player, { onPause: () => setPlaying(false), weapon });
+
+// end of the chapter: show the result on the pause screen
+mission.onEnd = (result) => {
+  const fmt = (n) => (n > 0 ? `+${n}` : String(n));
+  const el = document.getElementById('result');
+  const t = new Date(result.time);
+  const clock = `${String(t.getHours()).padStart(2, '0')}:${String(t.getMinutes()).padStart(2, '0')}`;
+  el.innerHTML = '';
+  const h = document.createElement('h2');
+  h.textContent = result.success ? `Sveavägen, ${clock}` : 'They got away';
+  const p = document.createElement('p');
+  p.textContent = result.success
+    ? 'The couple never made it home. Chapter 3, the escape, is still to be written: for now you can keep walking.'
+    : 'The couple went down into Hötorget T-bana and the night went on as any other.';
+  const table = document.createElement('table');
+  for (const [label, pts] of [...result.lines, ['Total', result.total]]) {
+    const tr = table.insertRow();
+    if (label === 'Total') tr.className = 'total';
+    tr.insertCell().textContent = label;
+    tr.insertCell().textContent = label === 'Total' ? String(pts) : fmt(pts);
+  }
+  el.append(h, p, table);
+  el.classList.remove('hidden');
+  document.getElementById('intro').classList.add('hidden');
+  againBtn.classList.remove('hidden');
+  startBtn.textContent = 'Keep walking';
+  if (touchMode) setPlaying(false);
+  else document.exitPointerLock?.();
+};
+againBtn.addEventListener('click', () => location.reload());
 
 function lock() {
   renderer.domElement.requestPointerLock?.();
@@ -168,10 +209,15 @@ function frame() {
   const dt = Math.min(0.05, clock.getDelta());
   player.update(dt);
   if (player.enabled || !started) {
-    vehicles.update(dt, player.pos);
+    vehicles.update(dt, [player.pos, ...couple.positions()]);
     people.update(dt, player.pos);
-    if (started) hud.update(dt, player);
+    couple.update(dt, player.pos);
+    if (started) {
+      hud.update(dt, player);
+      mission.update(dt);
+    }
   }
+  weapon.update(dt, player);
   lights.update(dt, camera.position);
   snow.update(dt, camera.position);
   audio.update(dt, vehicles.nearestDistance(player.pos.x, player.pos.z));
@@ -183,4 +229,4 @@ hud.update(0, player);
 frame();
 
 // debug hooks (handy in the console)
-window.almep = { world, player, camera, renderer, scene };
+window.almep = { world, player, camera, renderer, scene, couple, weapon, mission, hud };

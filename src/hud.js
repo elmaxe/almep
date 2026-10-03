@@ -17,6 +17,10 @@ export class Hud {
       captionTitle: document.querySelector('#caption h3'),
       captionText: document.querySelector('#caption p'),
       map: document.getElementById('minimap'),
+      objective: document.getElementById('objective'),
+      ammo: document.getElementById('ammo'),
+      crosshair: document.getElementById('crosshair'),
+      fireAmmo: document.getElementById('fire-ammo'),
     };
     this.ctx = this.el.map.getContext('2d');
     // in-game time: Friday 28 February 1986, 23:12
@@ -24,6 +28,8 @@ export class Hud {
     this.score = 0;
     this.activePoi = null;
     this.bigMap = false;
+    this.note = null; // { title, text, t }: a message that overrides POI captions
+    this.markers = () => []; // [{ x, z, color }] drawn on the minimap
     this.renderBaseMap();
     document.addEventListener('keydown', (e) => {
       if (e.code === 'KeyM') this.toggleMap();
@@ -94,6 +100,38 @@ export class Hud {
     this.score += points;
   }
 
+  setObjective(text) {
+    this.el.objective.textContent = text;
+    this.el.objective.classList.toggle('hidden', !text);
+  }
+
+  /** Show a caption for `seconds`, taking precedence over places of interest. */
+  notify(title, text, seconds = 5) {
+    this.note = { title, text, t: seconds };
+    this.showCaption(title, text);
+  }
+
+  showCaption(title, text) {
+    this.el.captionTitle.textContent = title;
+    this.el.captionText.textContent = text;
+    this.el.caption.classList.add('show');
+  }
+
+  /** Revolver chambers and state, bottom right. */
+  setAmmo({ drawn, rounds, chambers, reloading }) {
+    const dots = Array.from({ length: chambers }, (_, i) => (i < rounds ? '●' : '○')).join(' ');
+    this.el.ammo.textContent = reloading ? 'Reloading…' : drawn ? dots : `${dots}  ·  holstered`;
+    this.el.ammo.classList.toggle('holstered', !drawn);
+    this.el.fireAmmo.textContent = reloading ? '…' : dots.replaceAll(' ', ''); // touch: rounds on the fire button
+  }
+
+  hitMarker() {
+    const el = this.el.crosshair;
+    el.classList.remove('hit');
+    void el.offsetWidth; // restart the animation
+    el.classList.add('hit');
+  }
+
   update(dt, player) {
     this.time += dt * 1000;
     const d = new Date(this.time);
@@ -102,16 +140,20 @@ export class Hud {
     this.el.place.textContent = placeName(player.pos.x, player.pos.z, player.pos.y);
     this.el.score.textContent = this.score;
 
-    // points of interest
+    // notifications, then points of interest
+    if (this.note) {
+      this.note.t -= dt;
+      if (this.note.t <= 0) {
+        this.note = null;
+        this.activePoi = undefined; // re-show whatever POI we're standing in
+      }
+    }
     let poi = null;
     for (const p of POIS) if (Math.hypot(player.pos.x - p.x, player.pos.z - p.z) < p.r) poi = p;
-    if (poi !== this.activePoi) {
+    if (!this.note && poi !== this.activePoi) {
       this.activePoi = poi;
-      if (poi) {
-        this.el.captionTitle.textContent = poi.title;
-        this.el.captionText.textContent = poi.text;
-      }
-      this.el.caption.classList.toggle('show', !!poi);
+      if (poi) this.showCaption(poi.title, poi.text);
+      else this.el.caption.classList.remove('show');
     }
     this.drawMap(player);
   }
@@ -129,6 +171,17 @@ export class Hud {
     ctx.translate(-(player.pos.x - X0) * MAP_SCALE, -(player.pos.z - Z0) * MAP_SCALE);
     ctx.drawImage(this.base, 0, 0);
     ctx.restore();
+    for (const m of this.markers()) {
+      const mx = w / 2 + (m.x - player.pos.x) * zoom;
+      const my = h / 2 + (m.z - player.pos.z) * zoom;
+      ctx.fillStyle = m.color;
+      ctx.strokeStyle = '#0d0f14';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(mx, my, 5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+    }
     // player arrow (north-up map)
     ctx.save();
     ctx.translate(w / 2, h / 2);
