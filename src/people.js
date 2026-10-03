@@ -5,7 +5,7 @@ import { rng, pick } from './textures.js';
 const COATS = [0x1d1f24, 0x3b2f26, 0x4a4a4f, 0x2a3346, 0x5e4a36, 0x232323, 0x6b5b45];
 
 /** Simple low-poly person in a winter coat. Returns { group, legs }. */
-export function makePerson(r, { coat, hat = r() < 0.5, height = 1.7 + r() * 0.15 } = {}) {
+export function makePerson(r, { coat, hat = r() < 0.5, height = 1.7 + r() * 0.15, hair } = {}) {
   const g = new THREE.Group();
   const coatMat = new THREE.MeshStandardMaterial({ color: coat ?? pick(r, COATS), roughness: 0.9 });
   const skin = new THREE.MeshStandardMaterial({ color: 0xd9b59a, roughness: 0.8 });
@@ -28,9 +28,9 @@ export function makePerson(r, { coat, hat = r() < 0.5, height = 1.7 + r() * 0.15
     brim.position.y = 1.65 * s;
     g.add(h, brim);
   } else {
-    const hair = new THREE.Mesh(new THREE.SphereGeometry(0.115, 10, 6, 0, Math.PI * 2, 0, Math.PI / 2), new THREE.MeshStandardMaterial({ color: pick(r, [0x2a1d14, 0x6b5338, 0x9a9590, 0xc9b27a]) }));
-    hair.position.y = 1.61 * s;
-    g.add(hair);
+    const hairCap = new THREE.Mesh(new THREE.SphereGeometry(0.115, 10, 6, 0, Math.PI * 2, 0, Math.PI / 2), new THREE.MeshStandardMaterial({ color: hair ?? pick(r, [0x2a1d14, 0x6b5338, 0x9a9590, 0xc9b27a]) }));
+    hairCap.position.y = 1.61 * s;
+    g.add(hairCap);
   }
   const legs = [];
   for (const sx of [-0.09, 0.09]) {
@@ -64,8 +64,18 @@ export class People {
       const t = r();
       p.group.position.set(route.x, L.sidewalkH, route.z0 + (route.z1 - route.z0) * t);
       this.world.scene.add(p.group);
-      this.list.push({ ...p, route, dir: r() < 0.5 ? 1 : -1, speed: 1.1 + r() * 0.4, phase: r() * 10, pause: 0 });
+      this.list.push({ ...p, route, dir: r() < 0.5 ? 1 : -1, speed: 1.1 + r() * 0.4, phase: r() * 10, pause: 0, panic: 0 });
     });
+  }
+
+  /** A gunshot at (x, z): everyone within earshot hurries away from it. */
+  alarm(x, z, radius = 90) {
+    for (const p of this.list) {
+      const pos = p.group.position;
+      if (Math.hypot(pos.x - x, pos.z - z) > radius) continue;
+      p.panic = 12 + Math.random() * 6;
+      p.dir = pos.z >= z ? 1 : -1;
+    }
   }
 
   update(dt, player) {
@@ -74,7 +84,8 @@ export class People {
       const dx = player.x - pos.x;
       const dz = player.z - pos.z;
       const near = Math.hypot(dx, dz) < 1.2 && Math.abs(player.y - pos.y) < 2;
-      let v = near ? 0 : p.speed;
+      p.panic = Math.max(0, p.panic - dt);
+      const v = p.panic > 0 ? 4.2 : near ? 0 : p.speed;
       pos.z += p.dir * v * dt;
       pos.y = groundHeight(pos.x, pos.z);
       if (pos.z > p.route.z1) p.dir = -1;

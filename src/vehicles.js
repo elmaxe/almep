@@ -147,16 +147,18 @@ export class Vehicles {
     }
   }
 
-  update(dt, player) {
+  /** `walkers` are the positions of the player and anyone else on foot. */
+  update(dt, walkers) {
     const zMin = L.zNorth - 25;
     const zMax = L.zSouth + 25;
     for (const c of this.moving) {
       const { g, lane } = c;
       let target = c.cruise;
-      // stop for the player standing in the lane
-      if (player.y < 2) {
-        const ahead = (player.z - g.position.z) * lane.dir;
-        if (Math.abs(player.x - lane.x) < 1.8 && ahead > 0 && ahead < 14) target = ahead < 5 ? 0 : Math.min(target, (ahead - 5) * 1.2);
+      // stop for people standing in the lane
+      for (const w of walkers) {
+        if (w.y > 2) continue;
+        const ahead = (w.z - g.position.z) * lane.dir;
+        if (Math.abs(w.x - lane.x) < 1.8 && ahead > 0 && ahead < 14) target = Math.min(target, ahead < 5 ? 0 : (ahead - 5) * 1.2);
       }
       // keep distance to cars ahead in the same lane
       for (const o of this.moving) {
