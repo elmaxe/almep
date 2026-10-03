@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ALMEP — Sveavägen 1986</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Special+Elite&family=Inter:wght@400;600&display=swap" rel="stylesheet" />
+  <style>
+    :root { --ink: #e8e2d0; --dim: #9a958a; --red: #d62b35; --bg: rgba(8, 10, 14, 0.82); }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; height: 100%; overflow: hidden; background: #0e121b; color: var(--ink); font-family: Inter, Helvetica, Arial, sans-serif; }
+    #app canvas { display: block; }
+    .hidden { display: none !important; }
+
+    #overlay { position: fixed; inset: 0; display: grid; place-items: center; background: radial-gradient(ellipse at center, rgba(10,12,18,0.55), rgba(5,6,10,0.92)); z-index: 10; }
+    .panel { max-width: 560px; padding: 36px 40px; text-align: center; }
+    .panel h1 { font-family: 'Special Elite', 'Courier New', monospace; font-size: clamp(56px, 12vw, 104px); letter-spacing: 0.18em; margin: 0; color: var(--ink); text-shadow: 0 0 24px rgba(214, 43, 53, 0.45); }
+    .panel .sub { font-family: 'Special Elite', monospace; color: var(--dim); margin: 6px 0 26px; font-size: 15px; letter-spacing: 0.06em; }
+    .panel p { line-height: 1.55; color: #cfc9b8; font-size: 15px; }
+    #start { margin-top: 22px; background: var(--red); color: #fff; border: 0; padding: 14px 34px; font-size: 16px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; cursor: pointer; border-radius: 2px; }
+    #start:hover { filter: brightness(1.15); }
+    .keys { display: grid; grid-template-columns: auto auto; gap: 6px 18px; justify-content: center; margin-top: 22px; font-size: 13px; color: var(--dim); text-align: left; }
+    .keys b { color: var(--ink); font-weight: 600; }
+    .note { margin-top: 22px; font-size: 12px !important; color: #77736a !important; }
+
+    #hud { position: fixed; inset: 0; pointer-events: none; z-index: 5; }
+    #topleft { position: absolute; left: 16px; top: 14px; background: var(--bg); padding: 10px 14px; border-left: 3px solid var(--red); }
+    #place { font-family: 'Special Elite', monospace; font-size: 20px; letter-spacing: 0.05em; }
+    #clock { font-family: 'Special Elite', monospace; color: var(--dim); font-size: 14px; margin-top: 2px; }
+    #scorebox { margin-top: 8px; font-size: 12px; color: var(--dim); letter-spacing: 0.1em; text-transform: uppercase; }
+    #score { color: var(--ink); font-weight: 600; font-size: 15px; margin-left: 6px; }
+    #minimap { position: absolute; right: 16px; top: 14px; width: 200px; height: 200px; border: 1px solid rgba(232,226,208,0.35); border-radius: 50%; background: #0d0f14; transition: width .2s, height .2s, border-radius .2s; }
+    #minimap.big { width: min(70vh, 70vw); height: min(70vh, 70vw); border-radius: 4px; }
+    #crosshair { position: absolute; left: 50%; top: 50%; width: 4px; height: 4px; margin: -2px 0 0 -2px; background: rgba(255,255,255,0.7); border-radius: 50%; }
+    #caption { position: absolute; left: 50%; bottom: 40px; transform: translate(-50%, 10px); max-width: min(560px, calc(100vw - 32px)); background: var(--bg); padding: 12px 18px; opacity: 0; transition: opacity .5s, transform .5s; text-align: center; }
+    #caption.show { opacity: 1; transform: translate(-50%, 0); }
+    #caption h3 { margin: 0 0 4px; font-family: 'Special Elite', monospace; font-weight: normal; letter-spacing: 0.05em; }
+    #caption p { margin: 0; color: #cfc9b8; font-size: 14px; }
+    #help { position: absolute; left: 16px; bottom: 14px; font-size: 12px; color: rgba(232,226,208,0.5); }
+    @media (max-width: 640px) {
+      #minimap { width: 130px; height: 130px; }
+      #place { font-size: 16px; }
+      .panel { padding: 24px 16px; }
+    }
+  </style>
+</head>
+<body>
+  <div id="app"></div>
+
+  <div id="hud" class="hidden">
+    <div id="topleft">
+      <div id="place">Sveavägen</div>
+      <div id="clock"></div>
+      <div id="scorebox">Score<span id="score">0</span></div>
+    </div>
+    <canvas id="minimap" width="400" height="400"></canvas>
+    <div id="crosshair"></div>
+    <div id="caption"><h3></h3><p></p></div>
+    <div id="help">WASD move · Shift run · C crouch · Space jump · M map · Esc pause</div>
+  </div>
+
+  <div id="overlay">
+    <div class="panel">
+      <h1>ALMEP</h1>
+      <div class="sub">Sveavägen, Stockholm · fredag 28 februari 1986 · 23:12</div>
+      <p>It is a cold Friday night in Stockholm. The late show at Biografen Grand is letting out, snow is falling on Sveavägen, and the city is almost asleep.</p>
+      <p>Get to know the street: the corner of Tunnelgatan, the stairs up to Malmskillnadsgatan, the churchyard of Adolf Fredriks kyrka.</p>
+      <button id="start">Start</button>
+      <div class="keys">
+        <b>WASD / arrows</b><span>move</span>
+        <b>Mouse</b><span>look</span>
+        <b>Shift</b><span>run</span>
+        <b>C</b><span>crouch</span>
+        <b>Space</b><span>jump</span>
+        <b>M</b><span>map</span>
+        <b>Esc</b><span>pause</span>
+      </div>
+      <p class="note">Work in progress. Chapter 1: Sveavägen. A freely interpreted reconstruction of the street as it looked in 1986.</p>
+    </div>
+  </div>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
