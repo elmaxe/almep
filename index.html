@@ -2,19 +2,28 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#0e121b" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <title>ALMEP — Sveavägen 1986</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Special+Elite&family=Inter:wght@400;600&display=swap" rel="stylesheet" />
   <style>
-    :root { --ink: #e8e2d0; --dim: #9a958a; --red: #d62b35; --bg: rgba(8, 10, 14, 0.82); }
+    :root {
+      --ink: #e8e2d0; --dim: #9a958a; --red: #d62b35; --bg: rgba(8, 10, 14, 0.82); --map: 200px;
+      --sl: env(safe-area-inset-left, 0px); --sr: env(safe-area-inset-right, 0px);
+      --st: env(safe-area-inset-top, 0px); --sb: env(safe-area-inset-bottom, 0px);
+    }
     * { box-sizing: border-box; }
-    html, body { margin: 0; height: 100%; overflow: hidden; background: #0e121b; color: var(--ink); font-family: Inter, Helvetica, Arial, sans-serif; }
+    html, body { margin: 0; height: 100%; overflow: hidden; overscroll-behavior: none; background: #0e121b; color: var(--ink); font-family: Inter, Helvetica, Arial, sans-serif; -webkit-tap-highlight-color: transparent; -webkit-text-size-adjust: 100%; }
+    body.touch { user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; touch-action: none; }
     #app canvas { display: block; }
     .hidden { display: none !important; }
 
-    #overlay { position: fixed; inset: 0; display: grid; place-items: center; background: radial-gradient(ellipse at center, rgba(10,12,18,0.55), rgba(5,6,10,0.92)); z-index: 10; }
-    .panel { max-width: 560px; padding: 36px 40px; text-align: center; }
+    #overlay { position: fixed; inset: 0; display: flex; overflow-y: auto; -webkit-overflow-scrolling: touch; touch-action: pan-y; background: radial-gradient(ellipse at center, rgba(10,12,18,0.55), rgba(5,6,10,0.92)); z-index: 10; }
+    .panel { max-width: 560px; margin: auto; padding: calc(36px + var(--st)) calc(40px + var(--sr)) calc(36px + var(--sb)) calc(40px + var(--sl)); text-align: center; }
     .panel h1 { font-family: 'Special Elite', 'Courier New', monospace; font-size: clamp(56px, 12vw, 104px); letter-spacing: 0.18em; margin: 0; color: var(--ink); text-shadow: 0 0 24px rgba(214, 43, 53, 0.45); }
     .panel .sub { font-family: 'Special Elite', monospace; color: var(--dim); margin: 6px 0 26px; font-size: 15px; letter-spacing: 0.06em; }
     .panel p { line-height: 1.55; color: #cfc9b8; font-size: 15px; }
@@ -22,15 +31,17 @@
     #start:hover { filter: brightness(1.15); }
     .keys { display: grid; grid-template-columns: auto auto; gap: 6px 18px; justify-content: center; margin-top: 22px; font-size: 13px; color: var(--dim); text-align: left; }
     .keys b { color: var(--ink); font-weight: 600; }
+    .keys.touch-keys { display: none; }
+    @media (pointer: coarse) { .keys.mouse-keys { display: none; } .keys.touch-keys { display: grid; } }
     .note { margin-top: 22px; font-size: 12px !important; color: #77736a !important; }
 
     #hud { position: fixed; inset: 0; pointer-events: none; z-index: 5; }
-    #topleft { position: absolute; left: 16px; top: 14px; background: var(--bg); padding: 10px 14px; border-left: 3px solid var(--red); }
+    #topleft { position: absolute; left: calc(16px + var(--sl)); top: calc(14px + var(--st)); background: var(--bg); padding: 10px 14px; border-left: 3px solid var(--red); }
     #place { font-family: 'Special Elite', monospace; font-size: 20px; letter-spacing: 0.05em; }
     #clock { font-family: 'Special Elite', monospace; color: var(--dim); font-size: 14px; margin-top: 2px; }
     #scorebox { margin-top: 8px; font-size: 12px; color: var(--dim); letter-spacing: 0.1em; text-transform: uppercase; }
     #score { color: var(--ink); font-weight: 600; font-size: 15px; margin-left: 6px; }
-    #minimap { position: absolute; right: 16px; top: 14px; width: 200px; height: 200px; border: 1px solid rgba(232,226,208,0.35); border-radius: 50%; background: #0d0f14; transition: width .2s, height .2s, border-radius .2s; }
+    #minimap { position: absolute; right: calc(16px + var(--sr)); top: calc(14px + var(--st)); width: var(--map); height: var(--map); border: 1px solid rgba(232,226,208,0.35); border-radius: 50%; background: #0d0f14; transition: width .2s, height .2s, border-radius .2s; }
     #minimap.big { width: min(70vh, 70vw); height: min(70vh, 70vw); border-radius: 4px; }
     #crosshair { position: absolute; left: 50%; top: 50%; width: 4px; height: 4px; margin: -2px 0 0 -2px; background: rgba(255,255,255,0.7); border-radius: 50%; }
     #caption { position: absolute; left: 50%; bottom: 40px; transform: translate(-50%, 10px); max-width: min(560px, calc(100vw - 32px)); background: var(--bg); padding: 12px 18px; opacity: 0; transition: opacity .5s, transform .5s; text-align: center; }
@@ -38,10 +49,38 @@
     #caption h3 { margin: 0 0 4px; font-family: 'Special Elite', monospace; font-weight: normal; letter-spacing: 0.05em; }
     #caption p { margin: 0; color: #cfc9b8; font-size: 14px; }
     #help { position: absolute; left: 16px; bottom: 14px; font-size: 12px; color: rgba(232,226,208,0.5); }
-    @media (max-width: 640px) {
-      #minimap { width: 130px; height: 130px; }
+
+    /* touch controls */
+    #touch { display: none; position: absolute; inset: 0; pointer-events: auto; touch-action: none; z-index: 1; }
+    body.touch #touch { display: block; }
+    body.touch #help { display: none; }
+    body.touch #minimap { pointer-events: auto; z-index: 2; cursor: pointer; }
+    body.touch #minimap.big { z-index: 3; }
+    body.touch #caption { bottom: calc(150px + var(--sb)); }
+    #stick { position: absolute; left: calc(96px + var(--sl)); bottom: calc(40px + var(--sb)); width: 120px; height: 120px; margin: 0 0 0 -60px; border-radius: 50%; border: 2px solid rgba(232,226,208,0.28); background: rgba(8,10,14,0.35); opacity: 0.55; pointer-events: none; transition: opacity .15s; }
+    #stick.active { margin: -60px 0 0 -60px; opacity: 1; }
+    #knob { position: absolute; left: 50%; top: 50%; width: 52px; height: 52px; margin: -26px 0 0 -26px; border-radius: 50%; background: rgba(232,226,208,0.55); box-shadow: 0 0 12px rgba(0,0,0,0.5); }
+    #stick.run #knob { background: rgba(214,43,53,0.85); }
+    .tbtn { position: absolute; display: grid; place-items: center; border-radius: 50%; border: 2px solid rgba(232,226,208,0.35); background: rgba(8,10,14,0.55); color: var(--ink); font: 600 12px Inter, Helvetica, Arial, sans-serif; letter-spacing: 0.08em; text-transform: uppercase; padding: 0; touch-action: none; -webkit-user-select: none; user-select: none; }
+    .tbtn:active, .tbtn.on { background: rgba(214,43,53,0.75); border-color: rgba(255,255,255,0.5); }
+    #btn-jump { right: calc(28px + var(--sr)); bottom: calc(44px + var(--sb)); width: 80px; height: 80px; }
+    #btn-crouch { right: calc(122px + var(--sr)); bottom: calc(30px + var(--sb)); width: 62px; height: 62px; font-size: 10px; }
+    #btn-pause { right: calc(16px + var(--sr)); top: calc(26px + var(--st) + var(--map)); width: 44px; height: 44px; font-size: 14px; letter-spacing: 0; }
+
+    @media (max-width: 640px), (max-height: 500px) {
+      :root { --map: 120px; }
+      #topleft { padding: 8px 10px; }
       #place { font-size: 16px; }
-      .panel { padding: 24px 16px; }
+      #clock { font-size: 12px; }
+      .panel { padding: calc(24px + var(--st)) calc(16px + var(--sr)) calc(24px + var(--sb)) calc(16px + var(--sl)); }
+      .panel p { font-size: 14px; }
+    }
+    @media (max-height: 500px) {
+      .panel h1 { font-size: 48px; }
+      .panel .sub { margin-bottom: 12px; }
+      body.touch #caption { bottom: calc(14px + var(--sb)); max-width: max(220px, calc(100vw - 400px - var(--sl) - var(--sr))); padding: 8px 12px; }
+      body.touch #caption h3 { font-size: 15px; }
+      body.touch #caption p { font-size: 12px; }
     }
   </style>
 </head>
@@ -58,6 +97,12 @@
     <div id="crosshair"></div>
     <div id="caption"><h3></h3><p></p></div>
     <div id="help">WASD move · Shift run · C crouch · Space jump · M map · Esc pause</div>
+    <div id="touch">
+      <div id="stick"><div id="knob"></div></div>
+      <button id="btn-crouch" class="tbtn" aria-label="Crouch">Crouch</button>
+      <button id="btn-jump" class="tbtn" aria-label="Jump">Jump</button>
+      <button id="btn-pause" class="tbtn" aria-label="Pause">❚❚</button>
+    </div>
   </div>
 
   <div id="overlay">
@@ -67,7 +112,7 @@
       <p>It is a cold Friday night in Stockholm. The late show at Biografen Grand is letting out, snow is falling on Sveavägen, and the city is almost asleep.</p>
       <p>Get to know the street: the corner of Tunnelgatan, the stairs up to Malmskillnadsgatan, the churchyard of Adolf Fredriks kyrka.</p>
       <button id="start">Start</button>
-      <div class="keys">
+      <div class="keys mouse-keys">
         <b>WASD / arrows</b><span>move</span>
         <b>Mouse</b><span>look</span>
         <b>Shift</b><span>run</span>
@@ -75,6 +120,12 @@
         <b>Space</b><span>jump</span>
         <b>M</b><span>map</span>
         <b>Esc</b><span>pause</span>
+      </div>
+      <div class="keys touch-keys">
+        <b>Left thumb</b><span>walk (push to the edge to run)</span>
+        <b>Right thumb</b><span>drag to look</span>
+        <b>Buttons</b><span>jump, crouch, pause</span>
+        <b>Map</b><span>tap to enlarge</span>
       </div>
       <p class="note">Work in progress. Chapter 1: Sveavägen. A freely interpreted reconstruction of the street as it looked in 1986.</p>
     </div>
