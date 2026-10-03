@@ -12,12 +12,15 @@ import { Snow } from './snow.js';
 import { Player } from './player.js';
 import { Hud } from './hud.js';
 import { Ambience } from './audio.js';
+import { TouchControls } from './touch.js';
 
 const FOG = new THREE.Color(0x0e121b);
+const COARSE = window.matchMedia('(pointer: coarse)').matches;
 
 // --- renderer ---------------------------------------------------------------
 const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+// phones have very dense screens and weak GPUs; trade a little sharpness for frame rate
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, COARSE ? 1.25 : 1.5));
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.15;
@@ -29,6 +32,16 @@ scene.background = FOG;
 scene.fog = new THREE.FogExp2(FOG, 0.0105);
 
 const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.05, 1500);
+
+// keep a usable horizontal field of view on tall (portrait) screens
+function fitCamera() {
+  const aspect = window.innerWidth / window.innerHeight;
+  const vfov = 2 * Math.atan(Math.tan(THREE.MathUtils.degToRad(30)) / aspect);
+  camera.aspect = aspect;
+  camera.fov = THREE.MathUtils.clamp(THREE.MathUtils.radToDeg(vfov), 70, 95);
+  camera.updateProjectionMatrix();
+}
+fitCamera();
 
 // night sky with a faint orange city glow at the horizon
 const sky = new THREE.Mesh(
@@ -82,38 +95,72 @@ composer.addPass(bloom);
 composer.addPass(new OutputPass());
 
 function resize() {
-  camera.aspect = window.innerWidth / window.innerHeight;
-  camera.updateProjectionMatrix();
+  fitCamera();
   renderer.setSize(window.innerWidth, window.innerHeight);
   composer.setSize(window.innerWidth, window.innerHeight);
 }
 window.addEventListener('resize', resize);
 
-// --- menus / pointer lock -------------------------------------------------------
+// --- menus / pointer lock / touch ----------------------------------------------
 const overlay = document.getElementById('overlay');
 const hudEl = document.getElementById('hud');
 const startBtn = document.getElementById('start');
 let started = false;
+let touchMode = false;
+let startPointer = null;
+
+function setPlaying(playing) {
+  player.enabled = playing;
+  overlay.classList.toggle('hidden', playing);
+  hudEl.classList.toggle('hidden', !started);
+  audio.setPaused(!playing);
+  if (!playing) touch.reset();
+}
+
+const touch = new TouchControls(player, { onPause: () => setPlaying(false) });
 
 function lock() {
   renderer.domElement.requestPointerLock?.();
 }
+function goFullscreen() {
+  const el = document.documentElement;
+  const req = el.requestFullscreen || el.webkitRequestFullscreen;
+  if (!req || document.fullscreenElement || document.webkitFullscreenElement) return;
+  try {
+    req.call(el, { navigationUI: 'hide' })?.catch?.(() => {});
+  } catch { /* iPhone Safari has no element fullscreen */ }
+}
+
+// remember how the start button was pressed so hybrid devices get the right controls
+startBtn.addEventListener('pointerdown', (e) => { startPointer = e.pointerType; });
 startBtn.addEventListener('click', () => {
   audio.start();
-  lock();
+  touchMode = startPointer ? startPointer === 'touch' || startPointer === 'pen' : COARSE;
+  startPointer = null;
+  document.body.classList.toggle('touch', touchMode);
   if (!started) {
     started = true;
     startBtn.textContent = 'Resume';
   }
+  if (touchMode) {
+    goFullscreen();
+    setPlaying(true);
+  } else {
+    lock();
+  }
 });
-renderer.domElement.addEventListener('click', () => { if (started) lock(); });
+renderer.domElement.addEventListener('click', () => { if (started && !touchMode) lock(); });
 document.addEventListener('pointerlockchange', () => {
-  const locked = document.pointerLockElement === renderer.domElement;
-  player.enabled = locked;
-  overlay.classList.toggle('hidden', locked);
-  hudEl.classList.toggle('hidden', !started);
-  audio.setPaused(!locked);
+  if (touchMode) return;
+  setPlaying(document.pointerLockElement === renderer.domElement);
 });
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden && touchMode && player.enabled) setPlaying(false);
+});
+// no pinch-zoom / double-tap zoom while playing (iOS ignores user-scalable=no)
+for (const ev of ['gesturestart', 'gesturechange', 'dblclick']) {
+  document.addEventListener(ev, (e) => e.preventDefault(), { passive: false });
+}
 
 // --- loop ---------------------------------------------------------------------
 const clock = new THREE.Clock();

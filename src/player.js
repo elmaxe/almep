@@ -20,6 +20,7 @@ export class Player {
     this.yaw = -Math.PI * 0.62; // looking across at Biografen Grand
     this.pitch = 0.05;
     this.keys = new Set();
+    this.touch = { x: 0, y: 0, run: false, crouch: false }; // set by TouchControls
     this.eye = EYE;
     this.bob = 0;
     this.onStep = null;
@@ -28,16 +29,24 @@ export class Player {
 
     document.addEventListener('keydown', (e) => {
       this.keys.add(e.code);
-      if (e.code === 'Space' && this.enabled && this.grounded) this.vy = 4.2;
+      if (e.code === 'Space') this.jump();
     });
     document.addEventListener('keyup', (e) => this.keys.delete(e.code));
     document.addEventListener('mousemove', (e) => {
       if (document.pointerLockElement !== this.dom) return;
-      this.yaw -= e.movementX * 0.0022;
-      this.pitch -= e.movementY * 0.0022;
-      this.pitch = Math.max(-1.45, Math.min(1.45, this.pitch));
+      this.look(e.movementX, e.movementY, 0.0022);
     });
     window.addEventListener('blur', () => this.keys.clear());
+  }
+
+  look(dx, dy, sensitivity) {
+    this.yaw -= dx * sensitivity;
+    this.pitch -= dy * sensitivity;
+    this.pitch = Math.max(-1.45, Math.min(1.45, this.pitch));
+  }
+
+  jump() {
+    if (this.enabled && this.grounded) this.vy = 4.2;
   }
 
   blocked(x, z) {
@@ -62,11 +71,17 @@ export class Player {
       if (k.has('KeyS') || k.has('ArrowDown')) fz += 1;
       if (k.has('KeyA') || k.has('ArrowLeft')) fx -= 1;
       if (k.has('KeyD') || k.has('ArrowRight')) fx += 1;
+      if (!fx && !fz) {
+        fx = this.touch.x;
+        fz = this.touch.y;
+      }
     }
-    const crouch = this.enabled && (k.has('KeyC') || k.has('ControlLeft'));
-    const run = !crouch && (k.has('ShiftLeft') || k.has('ShiftRight'));
+    const t = this.touch;
+    const crouch = this.enabled && (k.has('KeyC') || k.has('ControlLeft') || t.crouch);
+    const run = !crouch && (k.has('ShiftLeft') || k.has('ShiftRight') || t.run);
     const speed = crouch ? 1.4 : run ? RUN : WALK;
-    const len = Math.hypot(fx, fz) || 1;
+    // normalise diagonals, but keep partial analog stick input as a slower walk
+    const len = Math.max(1, Math.hypot(fx, fz));
     const sin = Math.sin(this.yaw), cos = Math.cos(this.yaw);
     const wx = ((fx * cos + fz * sin) / len) * speed;
     const wz = ((-fx * sin + fz * cos) / len) * speed;

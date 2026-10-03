@@ -28,6 +28,8 @@ The layout is a free interpretation, not a survey: distances and building facade
 | M | toggle large map |
 | Esc | pause |
 
+On phones and tablets the game switches to touch controls automatically: drag with the left thumb to walk (push the stick to the edge to run), drag anywhere else to look around, and use the on-screen buttons to jump, crouch and pause. Tap the minimap to enlarge it. Both portrait and landscape work; landscape gives the widest view.
+
 ## Development
 
 ```bash

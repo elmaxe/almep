@@ -28,6 +28,7 @@ export class Hud {
     document.addEventListener('keydown', (e) => {
       if (e.code === 'KeyM') this.toggleMap();
     });
+    this.el.map.addEventListener('click', () => this.toggleMap()); // touch: tap the map
   }
 
   toggleMap() {
